@@ -1,6 +1,8 @@
 --!strict
 -- Player save data: shape, defaults and the only functions allowed to change it.
 -- Pure Luau (no Roblox services) so it runs under Lune tests as well as in-game.
+-- String require keeps this module runnable under Lune; Selene 0.27 predates it.
+-- selene: allow(incorrect_standard_library_use)
 local Rebirth = require("./Rebirth")
 
 export type Data = {
