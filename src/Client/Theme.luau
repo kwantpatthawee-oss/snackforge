@@ -1,5 +1,5 @@
 --!strict
--- D. Mural interface skin. Colours are MATCHANU Brand Book Volume III.
+-- D. Mural interface skin: the palette for every HUD and shop element.
 -- Fonts live here only: Roblox has no built-in Poppins or Kanit, so Gotham
 -- stands in until the brand fonts are added by asset id.
 local Theme = {}
