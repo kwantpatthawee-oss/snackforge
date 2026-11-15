@@ -120,6 +120,11 @@ end
 
 -- Buys seeds and tells the player what happened, for the prompt and the shop UI.
 local function buyAndReport(player: Player, seedId: string, count: number): (boolean, string?)
+	local data = DataManager.get(player)
+	if data ~= nil and seedId == Lanes.RESCUE_SEED and Lanes.rescue(field, data, player.UserId) then
+		notify(player, `Out of seeds and tokens: here is a free {Seeds[seedId].name} seed`)
+		return true, nil
+	end
 	local ok, reason = buySeeds(player, seedId, count)
 	if ok then
 		notify(player, `Bought {count} {Seeds[seedId].name} seed`)
@@ -154,6 +159,10 @@ local function publishStats(player: Player)
 		if player:GetAttribute("Seed_" .. seedId) ~= owned then
 			player:SetAttribute("Seed_" .. seedId, owned)
 		end
+	end
+	local stranded = Lanes.isStranded(field, data, player.UserId)
+	if player:GetAttribute("Stranded") ~= stranded then
+		player:SetAttribute("Stranded", stranded)
 	end
 	if player:GetAttribute("NightsSurvived") ~= data.NightsSurvived then
 		player:SetAttribute("NightsSurvived", data.NightsSurvived)

@@ -72,6 +72,36 @@ function Lanes.buySeeds(data: PlayerData.Data, seedId: string, count: number): (
 	return true, nil
 end
 
+Lanes.RESCUE_SEED = "ClassicCookie"
+
+-- True when a player has no way to earn: no seeds, no crops in the ground, and
+-- too few tokens for the cheapest seed.
+function Lanes.isStranded(field: Field, data: PlayerData.Data, userId: number): boolean
+	for _, count in data.UnlockedSeeds do
+		if count > 0 then
+			return false
+		end
+	end
+	for _, crop in field.crops do
+		if crop.owner == userId then
+			return false
+		end
+	end
+	local cheapest = math.huge
+	for _, seed in Seeds do
+		cheapest = math.min(cheapest, seed.cost)
+	end
+	return data.CrunchTokens < cheapest
+end
+
+-- Gives a stranded player one free starter seed so the loop can restart.
+function Lanes.rescue(field: Field, data: PlayerData.Data, userId: number): boolean
+	if not Lanes.isStranded(field, data, userId) then
+		return false
+	end
+	return PlayerData.addSeeds(data, Lanes.RESCUE_SEED, 1)
+end
+
 -- Planting is a Day action. It uses one seed and starts the growth timer.
 function Lanes.plant(
 	field: Field,

@@ -24,6 +24,7 @@ local STRINGS = {
 	Owned = "Owned",
 	Buy = "Buy  ·  %d",
 	Need = "Need %d",
+	FreeSeed = "Free seed",
 	Waiting = "Waiting for the server...",
 	Loading = "Loading your save...",
 }
@@ -521,8 +522,11 @@ local function refresh()
 		local owned = player:GetAttribute("Seed_" .. card.seedId)
 		card.owned.Text = if typeof(owned) == "number" then tostring(owned) else "0"
 		local cost = Seeds[card.seedId].cost
-		local canBuy = typeof(tokens) == "number" and tokens >= cost
-		card.buy.Text = string.format(if canBuy then STRINGS.Buy else STRINGS.Need, cost)
+		local free = card.seedId == SEED_ORDER[1] and player:GetAttribute("Stranded") == true
+		local canBuy = free or (typeof(tokens) == "number" and tokens >= cost)
+		card.buy.Text = if free
+			then STRINGS.FreeSeed
+			else string.format(if canBuy then STRINGS.Buy else STRINGS.Need, cost)
 		card.buy.BackgroundColor3 = Theme.Matcha
 		card.buy.BackgroundTransparency = if canBuy then 0 else 1
 		card.buy.TextColor3 = if canBuy then Theme.Cream else Theme.Muted

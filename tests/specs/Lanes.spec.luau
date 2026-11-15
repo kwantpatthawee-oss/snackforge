@@ -102,4 +102,25 @@ return function(check: (name: string, ok: boolean) -> ())
 	local cleared = Lanes.clearOwner(field, 1)
 	check("leaving frees that player's 2 plots", #cleared == 2 and Lanes.cropAt(field, 3, 1) == nil)
 	check("leaving keeps other players' crops", Lanes.cropAt(field, 4, 1) ~= nil)
+
+	local broke = PlayerData.template()
+	local empty = Lanes.new()
+	check("a fresh player is not stranded", Lanes.isStranded(empty, broke, 9) == false)
+	broke.UnlockedSeeds.ClassicCookie = 1
+	broke.CrunchTokens = 9
+	check("one seed left is not stranded", Lanes.isStranded(empty, broke, 9) == false)
+	Lanes.plant(empty, broke, 9, 1, 1, "ClassicCookie", 0, "Day")
+	check("a crop in the ground is not stranded", Lanes.isStranded(empty, broke, 9) == false)
+	check("rescue refused while a crop is growing", Lanes.rescue(empty, broke, 9) == false)
+	Lanes.clearOwner(empty, 9)
+	check("no seeds, no crops, 9 tokens is stranded", Lanes.isStranded(empty, broke, 9) == true)
+	broke.CrunchTokens = 10
+	check("10 tokens can still buy, so not stranded", Lanes.isStranded(empty, broke, 9) == false)
+	broke.CrunchTokens = 0
+	check(
+		"rescue gives one Classic Cookie seed",
+		Lanes.rescue(empty, broke, 9) and broke.UnlockedSeeds.ClassicCookie == 1
+	)
+	check("rescue cannot be repeated for more seeds", Lanes.rescue(empty, broke, 9) == false)
+	check("rescue costs no tokens", broke.CrunchTokens == 0)
 end
