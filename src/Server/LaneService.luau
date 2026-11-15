@@ -118,14 +118,19 @@ local function onPlotPrompt(player: Player, lane: number, plot: number)
 	end
 end
 
-local function onShopPrompt(player: Player)
-	local seedId = LaneWorld.SHOP_SEED
-	local ok, reason = buySeeds(player, seedId, 1)
+-- Buys seeds and tells the player what happened, for the prompt and the shop UI.
+local function buyAndReport(player: Player, seedId: string, count: number): (boolean, string?)
+	local ok, reason = buySeeds(player, seedId, count)
 	if ok then
-		notify(player, `Bought 1 {Seeds[seedId].name} seed`)
+		notify(player, `Bought {count} {Seeds[seedId].name} seed`)
 	else
 		report(player, reason)
 	end
+	return ok, reason
+end
+
+local function onShopPrompt(player: Player)
+	buyAndReport(player, LaneWorld.SHOP_SEED, 1)
 end
 
 -- Mirrors what the HUD needs onto the player as attributes.
@@ -143,6 +148,12 @@ local function publishStats(player: Player)
 	end
 	if player:GetAttribute("Seeds") ~= seeds then
 		player:SetAttribute("Seeds", seeds)
+	end
+	for _, seedId in SEED_ORDER do
+		local owned = data.UnlockedSeeds[seedId] or 0
+		if player:GetAttribute("Seed_" .. seedId) ~= owned then
+			player:SetAttribute("Seed_" .. seedId, owned)
+		end
 	end
 	if player:GetAttribute("NightsSurvived") ~= data.NightsSurvived then
 		player:SetAttribute("NightsSurvived", data.NightsSurvived)
@@ -182,7 +193,7 @@ function LaneService.start()
 		if typeof(seedId) ~= "string" or typeof(count) ~= "number" then
 			return false, "BadRequest"
 		end
-		return buySeeds(player, seedId, count)
+		return buyAndReport(player, seedId, count)
 	end)
 	remotes.Parent = ReplicatedStorage
 
