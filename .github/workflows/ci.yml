@@ -1,0 +1,18 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo bash scripts/install-toolchain.sh
+      - run: wally install
+      - run: stylua --check src tests
+      - run: selene src
+      - run: lune run tests/run.luau
+      - run: |
+          mkdir -p .luau
+          curl -fsSL -o .luau/globalTypes.d.luau https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.1/scripts/globalTypes.d.luau
+          rojo sourcemap -o sourcemap.json
+          luau-lsp analyze --sourcemap sourcemap.json --definitions .luau/globalTypes.d.luau src
+      - run: rojo build -o SnackForge.rbxl

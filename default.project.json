@@ -1,0 +1,26 @@
+{
+  "name": "SnackForge",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/Shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/Server"
+      },
+      "ServerPackages": {
+        "$path": "ServerPackages"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/Client"
+        }
+      }
+    }
+  }
+}
