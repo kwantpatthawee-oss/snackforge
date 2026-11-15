@@ -237,7 +237,7 @@ text(
 
 -- Counters, top right.
 local tokensPanel =
-	panel(root, UDim2.fromOffset(172, 44), UDim2.new(1, -27, 0, 12), Vector2.new(1, 0), Theme.Cream)
+	panel(root, UDim2.fromOffset(196, 44), UDim2.new(1, -27, 0, 12), Vector2.new(1, 0), Theme.Cream)
 tokenIcon(tokensPanel, UDim2.fromOffset(12, 10), 24)
 local tokensValue = text(
 	tokensPanel,
@@ -246,7 +246,7 @@ local tokensValue = text(
 	Theme.Bold,
 	Theme.Ink,
 	UDim2.fromOffset(44, 0),
-	UDim2.fromOffset(60, 44),
+	UDim2.fromOffset(72, 44),
 	LEFT
 )
 text(
@@ -255,13 +255,13 @@ text(
 	15,
 	Theme.Regular,
 	Theme.Muted,
-	UDim2.fromOffset(92, 0),
+	UDim2.fromOffset(116, 0),
 	UDim2.fromOffset(70, 44),
 	RIGHT
 )
 
 local seedsPanel =
-	panel(root, UDim2.fromOffset(172, 44), UDim2.new(1, -27, 0, 64), Vector2.new(1, 0), Theme.Cream)
+	panel(root, UDim2.fromOffset(196, 44), UDim2.new(1, -27, 0, 64), Vector2.new(1, 0), Theme.Cream)
 block(seedsPanel, Theme.SageOlive, UDim2.fromOffset(12, 10), UDim2.fromOffset(24, 24), 12)
 local seedsValue = text(
 	seedsPanel,
@@ -270,7 +270,7 @@ local seedsValue = text(
 	Theme.Bold,
 	Theme.Ink,
 	UDim2.fromOffset(44, 0),
-	UDim2.fromOffset(60, 44),
+	UDim2.fromOffset(72, 44),
 	LEFT
 )
 text(
@@ -279,7 +279,7 @@ text(
 	15,
 	Theme.Regular,
 	Theme.Muted,
-	UDim2.fromOffset(92, 0),
+	UDim2.fromOffset(116, 0),
 	UDim2.fromOffset(70, 44),
 	RIGHT
 )
