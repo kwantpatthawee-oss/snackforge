@@ -18,10 +18,28 @@ local clock = RoundClock.new()
 local listeners: { Listener } = {}
 local started = false
 
+local MAX_DEBUG_SPEED = 600
+
+-- Studio only: set a number attribute DebugRoundSpeed on Workspace (server
+-- view) to run the round clock that many times faster. Ignored in live games.
+local function debugSpeed(): number
+	if not RunService:IsStudio() then
+		return 1
+	end
+	local value = Workspace:GetAttribute("DebugRoundSpeed")
+	if typeof(value) == "number" and value > 0 then
+		return math.min(value, MAX_DEBUG_SPEED)
+	end
+	return 1
+end
+
 local function publish()
 	Workspace:SetAttribute("Phase", clock.phase)
 	Workspace:SetAttribute("Night", clock.night)
-	Workspace:SetAttribute("PhaseEndsAt", Workspace:GetServerTimeNow() + RoundClock.timeLeft(clock))
+	Workspace:SetAttribute(
+		"PhaseEndsAt",
+		Workspace:GetServerTimeNow() + RoundClock.timeLeft(clock) / debugSpeed()
+	)
 end
 
 -- Until night waves exist, every night counts as survived for players present.
@@ -35,7 +53,7 @@ local function onNightEnded()
 end
 
 local function step(deltaSeconds: number)
-	local events = RoundClock.advance(clock, deltaSeconds)
+	local events = RoundClock.advance(clock, deltaSeconds * debugSpeed())
 	if #events == 0 then
 		return
 	end
@@ -57,6 +75,7 @@ function RoundService.start()
 	end
 	started = true
 	publish()
+	Workspace:GetAttributeChangedSignal("DebugRoundSpeed"):Connect(publish)
 	RunService.Heartbeat:Connect(step)
 end
 

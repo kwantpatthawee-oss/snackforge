@@ -8,6 +8,8 @@ local Workspace = game:GetService("Workspace")
 
 local DataManager = require(script.Parent.DataManager)
 local LaneWorld = require(script.Parent.LaneWorld)
+local Notice = require(script.Parent.Notice)
+local Remotes = require(script.Parent.Remotes)
 local RoundService = require(script.Parent.RoundService)
 local Lanes = require(ReplicatedStorage.Shared.Lanes)
 local Seeds = require(ReplicatedStorage.Shared.Seeds)
@@ -33,10 +35,7 @@ local field = Lanes.new()
 local lastRequest: { [Player]: number } = {}
 local started = false
 
-local function notify(player: Player, text: string)
-	player:SetAttribute("Notice", text)
-	player:SetAttribute("NoticeAt", Workspace:GetServerTimeNow())
-end
+local notify = Notice.send
 
 -- Drops requests that arrive faster than a person can click.
 local function allowed(player: Player): boolean
@@ -164,16 +163,12 @@ local function publishStats(player: Player)
 	if player:GetAttribute("Stranded") ~= stranded then
 		player:SetAttribute("Stranded", stranded)
 	end
+	if player:GetAttribute("Rebirths") ~= data.Rebirths then
+		player:SetAttribute("Rebirths", data.Rebirths)
+	end
 	if player:GetAttribute("NightsSurvived") ~= data.NightsSurvived then
 		player:SetAttribute("NightsSurvived", data.NightsSurvived)
 	end
-end
-
-local function makeRemote(parent: Instance, name: string, handler: (Player, ...unknown) -> ...any)
-	local remote = Instance.new("RemoteFunction")
-	remote.Name = name
-	remote.OnServerInvoke = handler
-	remote.Parent = parent
 end
 
 function LaneService.start()
@@ -184,27 +179,24 @@ function LaneService.start()
 
 	LaneWorld.build(onPlotPrompt, onShopPrompt)
 
-	local remotes = Instance.new("Folder")
-	remotes.Name = "Remotes"
-	makeRemote(remotes, "PlantSeed", function(player, lane, plot, seedId)
+	Remotes.bind("PlantSeed", function(player, lane, plot, seedId)
 		if typeof(lane) ~= "number" or typeof(plot) ~= "number" or typeof(seedId) ~= "string" then
 			return false, "BadRequest"
 		end
 		return plant(player, lane, plot, seedId)
 	end)
-	makeRemote(remotes, "HarvestPlot", function(player, lane, plot)
+	Remotes.bind("HarvestPlot", function(player, lane, plot)
 		if typeof(lane) ~= "number" or typeof(plot) ~= "number" then
 			return false, "BadRequest"
 		end
 		return harvest(player, lane, plot)
 	end)
-	makeRemote(remotes, "BuySeeds", function(player, seedId, count)
+	Remotes.bind("BuySeeds", function(player, seedId, count)
 		if typeof(seedId) ~= "string" or typeof(count) ~= "number" then
 			return false, "BadRequest"
 		end
 		return buyAndReport(player, seedId, count)
 	end)
-	remotes.Parent = ReplicatedStorage
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil

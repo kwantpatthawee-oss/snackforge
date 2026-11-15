@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
+local Rebirth = require(ReplicatedStorage.Shared.Rebirth)
 local RoundClock = require(ReplicatedStorage.Shared.RoundClock)
 local Seeds = require(ReplicatedStorage.Shared.Seeds)
 local Theme = require(script.Parent.Theme)
@@ -25,6 +26,18 @@ local STRINGS = {
 	Buy = "Buy  ·  %d",
 	Need = "Need %d",
 	FreeSeed = "Free seed",
+	RebirthProgress = "REBIRTH  %d / %d",
+	RebirthReady = "REBIRTH READY",
+	RebirthTitle = "R E B I R T H",
+	RebirthNights = "Nights survived",
+	RebirthKeeps = "Keeps",
+	RebirthKeepsValue = "seeds, forge credits, receipts",
+	RebirthResets = "Resets",
+	RebirthResetsValue = "tokens to 100, nights to 0",
+	RebirthGives = "Gives",
+	RebirthGivesValue = "tokens pay x%g (now x%g)",
+	RebirthNow = "Rebirth now",
+	RebirthWait = "Survive %d more nights",
 	Waiting = "Waiting for the server...",
 	Loading = "Loading your save...",
 }
@@ -460,6 +473,150 @@ for index, seedId in SEED_ORDER do
 	makeCard(index, seedId)
 end
 
+-- Rebirth: a progress panel under the counters, and a confirm panel, because
+-- a rebirth resets tokens and cannot be undone.
+local rebirthPanel = panel(
+	root,
+	UDim2.fromOffset(196, 44),
+	UDim2.new(1, -27, 0, 116),
+	Vector2.new(1, 0),
+	Theme.Cream
+)
+local rebirthLabel = text(
+	rebirthPanel,
+	"",
+	15,
+	Theme.Medium,
+	Theme.Ink,
+	UDim2.fromOffset(12, 5),
+	UDim2.fromOffset(172, 20),
+	LEFT
+)
+local rebirthTrack =
+	block(rebirthPanel, Theme.SagePlaster, UDim2.fromOffset(12, 30), UDim2.fromOffset(172, 6), 3)
+local rebirthFill =
+	block(rebirthTrack, Theme.Matcha, UDim2.fromOffset(0, 0), UDim2.fromScale(0, 1), 3)
+local rebirthOpen = Instance.new("TextButton")
+rebirthOpen.Name = "OpenRebirth"
+rebirthOpen.Text = ""
+rebirthOpen.BackgroundTransparency = 1
+rebirthOpen.Size = UDim2.fromScale(1, 1)
+rebirthOpen.Parent = rebirthPanel
+
+local rebirthBackdrop = Instance.new("TextButton")
+rebirthBackdrop.Name = "RebirthBackdrop"
+rebirthBackdrop.Text = ""
+rebirthBackdrop.AutoButtonColor = false
+rebirthBackdrop.BackgroundColor3 = Color3.fromRGB(6, 9, 18)
+rebirthBackdrop.BackgroundTransparency = 0.45
+rebirthBackdrop.BorderSizePixel = 0
+rebirthBackdrop.Size = UDim2.fromScale(1, 1)
+rebirthBackdrop.Visible = false
+rebirthBackdrop.Parent = root
+
+local rebirthModal = panel(
+	rebirthBackdrop,
+	UDim2.fromOffset(460, 262),
+	UDim2.fromScale(0.5, 0.5),
+	Vector2.new(0.5, 0.5),
+	Theme.Burgundy
+)
+text(
+	rebirthModal,
+	STRINGS.RebirthTitle,
+	22,
+	Theme.Regular,
+	Theme.Cream,
+	UDim2.fromOffset(20, 14),
+	UDim2.fromOffset(300, 40),
+	LEFT
+)
+local rebirthClose = Instance.new("TextButton")
+rebirthClose.Name = "Close"
+rebirthClose.Text = "X"
+rebirthClose.TextSize = 20
+rebirthClose.Font = Theme.Medium
+rebirthClose.TextColor3 = Theme.Cream
+rebirthClose.BackgroundTransparency = 1
+rebirthClose.Position = UDim2.fromOffset(398, 12)
+rebirthClose.Size = UDim2.fromOffset(44, 44)
+rebirthClose.Parent = rebirthModal
+corner(rebirthClose, 3)
+stroke(rebirthClose, Theme.Gold, 1.5)
+
+local rebirthSheet =
+	block(rebirthModal, Theme.Cream, UDim2.fromOffset(20, 68), UDim2.fromOffset(420, 174), 3)
+local function rebirthRow(index: number, label: string): TextLabel
+	local y = 10 + (index - 1) * 24
+	text(
+		rebirthSheet,
+		label,
+		15,
+		Theme.Regular,
+		Theme.Muted,
+		UDim2.fromOffset(12, y),
+		UDim2.fromOffset(130, 24),
+		LEFT
+	)
+	return text(
+		rebirthSheet,
+		"",
+		15,
+		Theme.Medium,
+		Theme.Ink,
+		UDim2.fromOffset(140, y),
+		UDim2.fromOffset(268, 24),
+		RIGHT
+	)
+end
+local rebirthNightsValue = rebirthRow(1, STRINGS.RebirthNights)
+rebirthRow(2, STRINGS.RebirthKeeps).Text = STRINGS.RebirthKeepsValue
+rebirthRow(3, STRINGS.RebirthResets).Text = STRINGS.RebirthResetsValue
+local rebirthGivesValue = rebirthRow(4, STRINGS.RebirthGives)
+
+local rebirthConfirm = Instance.new("TextButton")
+rebirthConfirm.Name = "Confirm"
+rebirthConfirm.TextSize = 18
+rebirthConfirm.Font = Theme.Bold
+rebirthConfirm.BorderSizePixel = 0
+rebirthConfirm.BackgroundColor3 = Theme.Matcha
+rebirthConfirm.Position = UDim2.fromOffset(12, 118)
+rebirthConfirm.Size = UDim2.fromOffset(396, 44)
+rebirthConfirm.Parent = rebirthSheet
+corner(rebirthConfirm, 3)
+local rebirthConfirmStroke = Instance.new("UIStroke")
+rebirthConfirmStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+rebirthConfirmStroke.Color = Theme.Muted
+rebirthConfirmStroke.Thickness = 1.5
+rebirthConfirmStroke.Parent = rebirthConfirm
+
+local rebirthing = false
+rebirthOpen.Activated:Connect(function()
+	rebirthBackdrop.Visible = true
+end)
+rebirthClose.Activated:Connect(function()
+	rebirthBackdrop.Visible = false
+end)
+rebirthBackdrop.Activated:Connect(function()
+	rebirthBackdrop.Visible = false
+end)
+rebirthConfirm.Activated:Connect(function()
+	if rebirthing then
+		return
+	end
+	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+	local remote = if remotes then remotes:FindFirstChild("Rebirth") else nil
+	if remote == nil or not remote:IsA("RemoteFunction") then
+		return
+	end
+	rebirthing = true
+	pcall(function()
+		remote:InvokeServer()
+	end)
+	rebirthing = false
+	rebirthBackdrop.Visible = false
+end)
+
 -- Shop button, above the jump button on phones.
 local shopPanel = panel(
 	root,
@@ -532,6 +689,31 @@ local function refresh()
 		card.buy.TextColor3 = if canBuy then Theme.Cream else Theme.Muted
 		card.buy.Active = canBuy
 		card.buyStroke.Enabled = not canBuy
+	end
+
+	local nights = player:GetAttribute("NightsSurvived")
+	local rebirths = player:GetAttribute("Rebirths")
+	if typeof(nights) == "number" and typeof(rebirths) == "number" then
+		local need = Rebirth.requiredNights(rebirths)
+		local ready = nights >= need
+		rebirthLabel.Text = if ready
+			then STRINGS.RebirthReady
+			else string.format(STRINGS.RebirthProgress, nights, need)
+		rebirthLabel.TextColor3 = if ready then Theme.Burgundy else Theme.Ink
+		rebirthFill.Size = UDim2.fromScale(math.clamp(nights / need, 0, 1), 1)
+		rebirthNightsValue.Text = string.format("%d / %d", nights, need)
+		rebirthGivesValue.Text = string.format(
+			STRINGS.RebirthGivesValue,
+			Rebirth.multiplier(rebirths + 1),
+			Rebirth.multiplier(rebirths)
+		)
+		rebirthConfirm.Text = if ready
+			then STRINGS.RebirthNow
+			else string.format(STRINGS.RebirthWait, need - nights)
+		rebirthConfirm.BackgroundTransparency = if ready then 0 else 1
+		rebirthConfirm.TextColor3 = if ready then Theme.Cream else Theme.Muted
+		rebirthConfirm.Active = ready
+		rebirthConfirmStroke.Enabled = not ready
 	end
 
 	local notice = player:GetAttribute("Notice")
