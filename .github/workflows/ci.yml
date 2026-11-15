@@ -16,3 +16,4 @@ jobs:
           rojo sourcemap -o sourcemap.json
           luau-lsp analyze --sourcemap sourcemap.json --definitions .luau/globalTypes.d.luau src
       - run: rojo build -o SnackForge.rbxl
+      - run: lune run tests/place.luau SnackForge.rbxl
