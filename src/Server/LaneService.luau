@@ -1,45 +1,41 @@
 --!strict
--- Server side of planting. Clients ask through three RemoteFunctions in
--- ReplicatedStorage.Remotes; every argument is checked here before use.
--- Each plot's state is published as attributes on ReplicatedStorage.LaneState.
+-- Server side of planting. Players act through the plot and shop prompts in
+-- the world, or through three RemoteFunctions in ReplicatedStorage.Remotes
+-- (for UI later). Every request is checked here before it changes anything.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local DataManager = require(script.Parent.DataManager)
+local LaneWorld = require(script.Parent.LaneWorld)
 local RoundService = require(script.Parent.RoundService)
 local Lanes = require(ReplicatedStorage.Shared.Lanes)
+local Seeds = require(ReplicatedStorage.Shared.Seeds)
 
 local MIN_SECONDS_BETWEEN_REQUESTS = 0.1
+local REFRESH_SECONDS = 0.25
+local SEED_ORDER = { "ClassicCookie", "GoldenDough" }
+
+-- What the player reads when a request is refused.
+local NOTICES: { [string]: string } = {
+	NotDay = "You can only plant during the Day.",
+	NoSeed = "No seeds left. Buy more at the red Seed Shop.",
+	PlotTaken = "Someone already planted here.",
+	NotYours = "This crop belongs to another player.",
+	NotRipe = "Still growing.",
+	NotEnoughTokens = "Not enough tokens.",
+	DataNotLoaded = "Your save is still loading.",
+}
 
 local LaneService = {}
 
 local field = Lanes.new()
 local lastRequest: { [Player]: number } = {}
-local stateFolder: Folder? = nil
 local started = false
 
-local function publish(lane: number, plot: number)
-	local folder = stateFolder
-	if folder == nil then
-		return
-	end
-	local node = folder:FindFirstChild(Lanes.key(lane, plot))
-	if node == nil then
-		return
-	end
-	local crop = Lanes.cropAt(field, lane, plot)
-	node:SetAttribute("Owner", if crop then crop.owner else 0)
-	node:SetAttribute("Seed", if crop then crop.seedId else "")
-	node:SetAttribute("RipeAt", if crop then crop.ripeAt else 0)
-end
-
-local function publishAll()
-	for lane = 1, field.laneCount do
-		for plot = 1, field.plotsPerLane do
-			publish(lane, plot)
-		end
-	end
+local function notify(player: Player, text: string)
+	player:SetAttribute("Notice", text)
+	player:SetAttribute("NoticeAt", Workspace:GetServerTimeNow())
 end
 
 -- Drops requests that arrive faster than a person can click.
@@ -53,15 +49,7 @@ local function allowed(player: Player): boolean
 	return true
 end
 
-local function onPlant(
-	player: Player,
-	lane: unknown,
-	plot: unknown,
-	seedId: unknown
-): (boolean, string?)
-	if typeof(lane) ~= "number" or typeof(plot) ~= "number" or typeof(seedId) ~= "string" then
-		return false, "BadRequest"
-	end
+local function plant(player: Player, lane: number, plot: number, seedId: string): (boolean, string?)
 	if not allowed(player) then
 		return false, "TooFast"
 	end
@@ -70,18 +58,10 @@ local function onPlant(
 		return false, "DataNotLoaded"
 	end
 	local now = Workspace:GetServerTimeNow()
-	local ok, reason =
-		Lanes.plant(field, data, player.UserId, lane, plot, seedId, now, RoundService.phase())
-	if ok then
-		publish(lane, plot)
-	end
-	return ok, reason
+	return Lanes.plant(field, data, player.UserId, lane, plot, seedId, now, RoundService.phase())
 end
 
-local function onHarvest(player: Player, lane: unknown, plot: unknown): (boolean, string | number)
-	if typeof(lane) ~= "number" or typeof(plot) ~= "number" then
-		return false, "BadRequest"
-	end
+local function harvest(player: Player, lane: number, plot: number): (boolean, string | number)
 	if not allowed(player) then
 		return false, "TooFast"
 	end
@@ -89,18 +69,10 @@ local function onHarvest(player: Player, lane: unknown, plot: unknown): (boolean
 	if data == nil then
 		return false, "DataNotLoaded"
 	end
-	local ok, result =
-		Lanes.harvest(field, data, player.UserId, lane, plot, Workspace:GetServerTimeNow())
-	if ok then
-		publish(lane, plot)
-	end
-	return ok, result
+	return Lanes.harvest(field, data, player.UserId, lane, plot, Workspace:GetServerTimeNow())
 end
 
-local function onBuySeeds(player: Player, seedId: unknown, count: unknown): (boolean, string?)
-	if typeof(seedId) ~= "string" or typeof(count) ~= "number" then
-		return false, "BadRequest"
-	end
+local function buySeeds(player: Player, seedId: string, count: number): (boolean, string?)
 	if not allowed(player) then
 		return false, "TooFast"
 	end
@@ -109,6 +81,72 @@ local function onBuySeeds(player: Player, seedId: unknown, count: unknown): (boo
 		return false, "DataNotLoaded"
 	end
 	return Lanes.buySeeds(data, seedId, count)
+end
+
+local function report(player: Player, reason: string | number | nil)
+	if typeof(reason) == "string" and NOTICES[reason] ~= nil then
+		notify(player, NOTICES[reason])
+	end
+end
+
+-- A plot prompt plants on an empty plot and harvests a planted one.
+local function onPlotPrompt(player: Player, lane: number, plot: number)
+	if Lanes.cropAt(field, lane, plot) ~= nil then
+		local ok, result = harvest(player, lane, plot)
+		if ok then
+			notify(player, `Harvested: +{result} tokens`)
+		else
+			report(player, result)
+		end
+		return
+	end
+	local data = DataManager.get(player)
+	local seedId = SEED_ORDER[1]
+	if data ~= nil then
+		for _, candidate in SEED_ORDER do
+			if (data.UnlockedSeeds[candidate] or 0) > 0 then
+				seedId = candidate
+				break
+			end
+		end
+	end
+	local ok, reason = plant(player, lane, plot, seedId)
+	if ok then
+		notify(player, `Planted {Seeds[seedId].name}`)
+	else
+		report(player, reason)
+	end
+end
+
+local function onShopPrompt(player: Player)
+	local seedId = LaneWorld.SHOP_SEED
+	local ok, reason = buySeeds(player, seedId, 1)
+	if ok then
+		notify(player, `Bought 1 {Seeds[seedId].name} seed`)
+	else
+		report(player, reason)
+	end
+end
+
+-- Mirrors what the HUD needs onto the player as attributes.
+local function publishStats(player: Player)
+	local data = DataManager.get(player)
+	if data == nil then
+		return
+	end
+	local seeds = 0
+	for _, count in data.UnlockedSeeds do
+		seeds += count
+	end
+	if player:GetAttribute("Tokens") ~= data.CrunchTokens then
+		player:SetAttribute("Tokens", data.CrunchTokens)
+	end
+	if player:GetAttribute("Seeds") ~= seeds then
+		player:SetAttribute("Seeds", seeds)
+	end
+	if player:GetAttribute("NightsSurvived") ~= data.NightsSurvived then
+		player:SetAttribute("NightsSurvived", data.NightsSurvived)
+	end
 end
 
 local function makeRemote(parent: Instance, name: string, handler: (Player, ...unknown) -> ...any)
@@ -124,30 +162,43 @@ function LaneService.start()
 	end
 	started = true
 
-	local folder = Instance.new("Folder")
-	folder.Name = "LaneState"
-	for lane = 1, field.laneCount do
-		for plot = 1, field.plotsPerLane do
-			local node = Instance.new("Configuration")
-			node.Name = Lanes.key(lane, plot)
-			node.Parent = folder
-		end
-	end
-	stateFolder = folder
-	publishAll()
-	folder.Parent = ReplicatedStorage
+	LaneWorld.build(onPlotPrompt, onShopPrompt)
 
 	local remotes = Instance.new("Folder")
 	remotes.Name = "Remotes"
-	makeRemote(remotes, "PlantSeed", onPlant)
-	makeRemote(remotes, "HarvestPlot", onHarvest)
-	makeRemote(remotes, "BuySeeds", onBuySeeds)
+	makeRemote(remotes, "PlantSeed", function(player, lane, plot, seedId)
+		if typeof(lane) ~= "number" or typeof(plot) ~= "number" or typeof(seedId) ~= "string" then
+			return false, "BadRequest"
+		end
+		return plant(player, lane, plot, seedId)
+	end)
+	makeRemote(remotes, "HarvestPlot", function(player, lane, plot)
+		if typeof(lane) ~= "number" or typeof(plot) ~= "number" then
+			return false, "BadRequest"
+		end
+		return harvest(player, lane, plot)
+	end)
+	makeRemote(remotes, "BuySeeds", function(player, seedId, count)
+		if typeof(seedId) ~= "string" or typeof(count) ~= "number" then
+			return false, "BadRequest"
+		end
+		return buySeeds(player, seedId, count)
+	end)
 	remotes.Parent = ReplicatedStorage
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil
 		Lanes.clearOwner(field, player.UserId)
-		publishAll()
+	end)
+
+	task.spawn(function()
+		while true do
+			LaneWorld.refresh(field, Workspace:GetServerTimeNow())
+			for _, player in Players:GetPlayers() do
+				publishStats(player)
+			end
+			task.wait(REFRESH_SECONDS)
+		end
 	end)
 end
 

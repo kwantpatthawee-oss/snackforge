@@ -39,6 +39,19 @@ function Lanes.key(lane: number, plot: number): string
 	return `L{lane}P{plot}`
 end
 
+-- Where a plot sits on the ground: four lanes run out from the Foundry at the
+-- centre, north, east, south and west. Returns x and z in studs.
+Lanes.FIRST_PLOT_DISTANCE = 16
+Lanes.PLOT_SPACING = 8
+
+local DIRECTIONS = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } }
+
+function Lanes.plotPosition(lane: number, plot: number): (number, number)
+	local direction = DIRECTIONS[lane]
+	local distance = Lanes.FIRST_PLOT_DISTANCE + (plot - 1) * Lanes.PLOT_SPACING
+	return direction[1] * distance, direction[2] * distance
+end
+
 function Lanes.cropAt(field: Field, lane: number, plot: number): Crop?
 	return field.crops[Lanes.key(lane, plot)]
 end

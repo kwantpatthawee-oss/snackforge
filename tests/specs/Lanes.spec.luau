@@ -12,6 +12,24 @@ return function(check: (name: string, ok: boolean) -> ())
 		)
 	end
 
+	local spots: { { number } } = {}
+	local closest = math.huge
+	for lane = 1, Lanes.LANE_COUNT do
+		for plot = 1, Lanes.PLOTS_PER_LANE do
+			local x, z = Lanes.plotPosition(lane, plot)
+			for _, other in spots do
+				closest = math.min(closest, math.sqrt((x - other[1]) ^ 2 + (z - other[2]) ^ 2))
+			end
+			table.insert(spots, { x, z })
+		end
+	end
+	check("24 plots are laid out", #spots == 24)
+	check("no two plots are closer than 8 studs", closest >= 8)
+	local fx, fz = Lanes.plotPosition(1, 1)
+	local lx, lz = Lanes.plotPosition(2, 6)
+	check("lane 1 starts 16 studs north of centre", fx == 0 and fz == 16)
+	check("lane 2 ends 56 studs east of centre", lx == 56 and lz == 0)
+
 	local field = Lanes.new()
 	local a = PlayerData.template()
 	local ok, why = Lanes.plant(field, a, 1, 1, 1, "ClassicCookie", 1000, "Night")
