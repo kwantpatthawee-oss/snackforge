@@ -12,7 +12,7 @@ get() {
 get rojo     $G/rojo-rbx/rojo/releases/download/v7.6.1/rojo-7.6.1-linux-x86_64.zip
 get wally    $G/UpliftGames/wally/releases/download/v0.3.2/wally-v0.3.2-linux.zip
 get stylua   $G/JohnnyMorganz/StyLua/releases/download/v2.0.0/stylua-linux-x86_64.zip
-get selene   $G/Kampfkarren/selene/releases/download/0.27.0/selene-0.27.0-linux.zip
+get selene   $G/Kampfkarren/selene/releases/download/0.31.0/selene-0.31.0-linux.zip
 get lune     $G/lune-org/lune/releases/download/v0.11.1/lune-0.11.1-linux-x86_64.zip
 get luau-lsp $G/JohnnyMorganz/luau-lsp/releases/download/1.70.1/luau-lsp-linux-x86_64.zip
 rm -rf "$T"
