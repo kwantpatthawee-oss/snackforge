@@ -30,9 +30,10 @@ return function(check: (name: string, ok: boolean) -> ())
 	)
 
 	check("rebirth refused before night 10", PlayerData.applyRebirth(d) == false)
-	PlayerData.recordNight(d, 12)
-	PlayerData.recordNight(d, 7)
-	check("recordNight keeps the best night", d.NightsSurvived == 12)
+	for _ = 1, 12 do
+		PlayerData.surviveNight(d)
+	end
+	check("surviveNight counts each night", d.NightsSurvived == 12)
 	d.UnlockedSeeds.GoldenDough = 2
 	check("rebirth allowed at night 12", PlayerData.applyRebirth(d) == true)
 	check("rebirth stacks luck to 1.5", d.Rebirths == 1 and d.LuckMultiplier == 1.5)
@@ -40,4 +41,16 @@ return function(check: (name: string, ok: boolean) -> ())
 	check("rebirth keeps seeds", d.UnlockedSeeds.GoldenDough == 2)
 	check("rebirth keeps redeemed receipts", d.RedeemedReceipts["SUMO-123"] == true)
 	check("rebirth cannot be repeated at once", PlayerData.applyRebirth(d) == false)
+
+	local s = PlayerData.template()
+	check(
+		"takeSeed uses one seed",
+		PlayerData.takeSeed(s, "ClassicCookie") and s.UnlockedSeeds.ClassicCookie == 4
+	)
+	check("takeSeed refuses a seed not owned", PlayerData.takeSeed(s, "GoldenDough") == false)
+	check(
+		"addSeeds adds to an unowned seed",
+		PlayerData.addSeeds(s, "GoldenDough", 2) and s.UnlockedSeeds.GoldenDough == 2
+	)
+	check("addSeeds rejects a fraction", PlayerData.addSeeds(s, "GoldenDough", 1.5) == false)
 end

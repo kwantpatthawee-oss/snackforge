@@ -17,6 +17,7 @@ end
 local specs: { (Check) -> () } = {
 	require("./specs/Rebirth.spec"),
 	require("./specs/PlayerData.spec"),
+	require("./specs/RoundClock.spec"),
 }
 for _, spec in specs do
 	spec(check)

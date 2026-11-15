@@ -52,10 +52,26 @@ function PlayerData.spendTokens(data: Data, amount: number): boolean
 	return true
 end
 
-function PlayerData.recordNight(data: Data, night: number)
-	if night == night and night > data.NightsSurvived then
-		data.NightsSurvived = math.floor(night)
+-- Called once for each night the player is present for when it ends.
+function PlayerData.surviveNight(data: Data)
+	data.NightsSurvived += 1
+end
+
+function PlayerData.addSeeds(data: Data, seedId: string, count: number): boolean
+	if seedId == "" or not isWholeAmount(count) then
+		return false
 	end
+	data.UnlockedSeeds[seedId] = (data.UnlockedSeeds[seedId] or 0) + count
+	return true
+end
+
+function PlayerData.takeSeed(data: Data, seedId: string): boolean
+	local owned = data.UnlockedSeeds[seedId] or 0
+	if owned < 1 then
+		return false
+	end
+	data.UnlockedSeeds[seedId] = owned - 1
+	return true
 end
 
 -- A receipt code grants its reward once. Returns false if already redeemed.
